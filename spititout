@@ -1,0 +1,216 @@
+#!/bin/zsh
+
+emulate -L zsh
+setopt localoptions pipefail extendedglob
+
+PROGRAM_NAME="spititout"
+INSTALL_DIR="${HOME}/.local/bin"
+INSTALL_PATH="${INSTALL_DIR}/${PROGRAM_NAME}"
+
+ORANGE=$'\033[38;2;252;108;28m'
+WHITE=$'\033[97m'
+DIM=$'\033[2m'
+RESET=$'\033[0m'
+
+LINE="${ORANGE}────────────────────────────────────────────────────────────${RESET}"
+
+BREW_BIN=""
+FORMULAE=()
+CASKS=()
+APP_RECORDS=()
+
+die() {
+    printf '%s\n' "${ORANGE}${PROGRAM_NAME}:${RESET} $*" >&2
+    exit 1
+}
+
+plist_value() {
+    local plist="$1"
+    local key="$2"
+
+    [[ -f "$plist" ]] || return 1
+
+    /usr/bin/plutil \
+        -extract "$key" \
+        raw \
+        -o - \
+        "$plist" 2>/dev/null
+}
+
+collect_brew() {
+    BREW_BIN=""
+    FORMULAE=()
+    CASKS=()
+
+    if ! command -v brew >/dev/null 2>&1; then
+        return 0
+    fi
+
+    BREW_BIN="$(command -v brew)"
+
+    FORMULAE=("${(@f)$(brew list --formula 2>/dev/null)}")
+    CASKS=("${(@f)$(brew list --cask 2>/dev/null)}")
+
+    (( ${#FORMULAE} )) && FORMULAE=("${(@o)FORMULAE}")
+    (( ${#CASKS} )) && CASKS=("${(@o)CASKS}")
+}
+
+collect_apps() {
+    local root app plist name bundle_id
+
+    APP_RECORDS=()
+
+    for root in /Applications "$HOME/Applications"; do
+        [[ -d "$root" ]] || continue
+
+        while IFS= read -r app; do
+            [[ -d "$app" ]] || continue
+
+            plist="${app}/Contents/Info.plist"
+
+            name="${app:t}"
+            name="${name%.app}"
+
+            bundle_id="$(plist_value "$plist" "CFBundleIdentifier")"
+
+            [[ "$bundle_id" == com.apple.* ]] && continue
+            [[ -n "$bundle_id" ]] || bundle_id="unknown"
+
+            APP_RECORDS+=(
+                "${name}"$'\t'"${bundle_id}"
+            )
+        done < <(
+            /usr/bin/find "$root" \
+                -type d \
+                -name '*.app' \
+                -prune \
+                -print 2>/dev/null
+        )
+    done
+
+    (( ${#APP_RECORDS} )) && APP_RECORDS=("${(@o)APP_RECORDS}")
+}
+
+render_header() {
+    printf '\n'
+    printf '%s\n' "${ORANGE}                 SPITITOUT${WHITE} by willow${RESET}"
+    printf '%s\n' "$LINE"
+    printf '%s\n\n' "${DIM}system inventory • read-only • local only${RESET}"
+}
+
+render_inventory() {
+    local record name
+
+    printf '%s\n' "${ORANGE}FORMULAE${RESET} ${DIM}(${#FORMULAE})${RESET}"
+
+    if (( ${#FORMULAE} )); then
+        printf '  %s\n' "${FORMULAE[@]}"
+    else
+        printf '  %s\n' "${DIM}none${RESET}"
+    fi
+
+    printf '\n%s\n' "${ORANGE}CASKS${RESET} ${DIM}(${#CASKS})${RESET}"
+
+    if (( ${#CASKS} )); then
+        printf '  %s\n' "${CASKS[@]}"
+    else
+        printf '  %s\n' "${DIM}none${RESET}"
+    fi
+
+    printf '\n%s\n' \
+        "${ORANGE}APPLICATIONS${RESET} ${DIM}(non-Apple • ${#APP_RECORDS})${RESET}"
+
+    if (( ${#APP_RECORDS} )); then
+        for record in "${APP_RECORDS[@]}"; do
+            name="${record%%$'\t'*}"
+            printf '  %s\n' "$name"
+        done
+    else
+        printf '  %s\n' "${DIM}none${RESET}"
+    fi
+}
+
+
+
+render_totals() {
+    printf '\n%s\n' "$LINE"
+    printf '%s\n' "${ORANGE}TOTALS${RESET}"
+
+    printf '  Formulae       %s\n' "${#FORMULAE}"
+    printf '  Casks          %s\n' "${#CASKS}"
+    printf '  Applications   %s\n' "${#APP_RECORDS}"
+
+    printf '\n'
+
+    if [[ -n "$BREW_BIN" ]]; then
+        printf '%s%s%s %s\n' \
+            "$ORANGE" \
+            "brew:" \
+            "$RESET" \
+            "$BREW_BIN"
+    else
+        printf '%s%s%s %s\n' \
+            "$ORANGE" \
+            "brew:" \
+            "$RESET" \
+            "not installed"
+    fi
+
+    printf '%s\n' "$LINE"
+}
+
+zap_self() {
+    local answer
+
+    printf '\n'
+    printf '%s\n' "${ORANGE}This will remove only:${RESET}"
+    printf '  %s\n\n' "$INSTALL_PATH"
+
+    printf '%s' "Continue? [y/N] "
+    read -r answer
+
+    case "$answer" in
+        y|Y|yes|YES)
+            ;;
+        *)
+            printf '%s\n' "${DIM}Cancelled.${RESET}"
+            return 0
+            ;;
+    esac
+
+    if [[ -e "$INSTALL_PATH" ]]; then
+        rm -f -- "$INSTALL_PATH" ||
+            die "could not remove $INSTALL_PATH."
+
+        printf '%s\n' "${ORANGE}spititout removed.${RESET}"
+    else
+        printf '%s\n' \
+            "${DIM}spititout is not installed at $INSTALL_PATH.${RESET}"
+    fi
+}
+
+main() {
+    case "${1:-}" in
+        "")
+            collect_brew
+            collect_apps
+
+            render_header
+            render_inventory
+            render_totals
+            ;;
+
+        zap)
+            [[ "$#" -eq 1 ]] ||
+                die "zap does not take additional arguments."
+
+            zap_self
+            ;;
+
+        *)
+            die "unknown command: $1"
+            ;;
+    esac
+}
+
+main "$@"
