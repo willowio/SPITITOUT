@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 
 set -e
@@ -9,18 +8,24 @@ SCRIPT_URL="https://raw.githubusercontent.com/willowio/SPITITOUT/main/spititout"
 
 mkdir -p "$INSTALL_DIR"
 
-curl -fsSL "$SCRIPT_URL" -o "$INSTALL_PATH"
+if ! curl -fsSL "$SCRIPT_URL" -o "$INSTALL_PATH"; then
+    rm -f "$INSTALL_PATH"
+    printf 'SPITITOUT could not be installed.\n' >&2
+    exit 1
+fi
+
 chmod +x "$INSTALL_PATH"
 
-printf '\nSPITITOUT is ready.\n'
-printf 'Installed to: %s\n\n' "$INSTALL_PATH"
+printf '\nSPITITOUT installed.\n'
+printf 'Location: %s\n\n' "$INSTALL_PATH"
 
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    printf 'Add this to ~/.zshrc:\n'
+    printf 'Add this to ~/.zshrc:\n\n'
     printf 'export PATH="$HOME/.local/bin:$PATH"\n\n'
-    printf 'Then restart your shell and run:\n'
+    printf 'Then restart your shell and run:\n\n'
     printf 'spititout\n'
 else
     printf 'Run: spititout\n'
 fi
-```
+
+printf '\n'

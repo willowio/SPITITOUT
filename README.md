@@ -45,7 +45,7 @@ Just ask your Mac what's there, print the useful bits, and leave.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/willowio/spititout/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/willowio/SPITITOUT/main/install.sh | bash
 ```
 
 Then:
