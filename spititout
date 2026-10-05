@@ -40,11 +40,6 @@ Options:
   --json    Output the inventory as JSON.
   zap       Remove the installed SPITITOUT executable.
 
-No accounts.
-No telemetry.
-No network requests.
-No background processes.
-No sudo.
 EOF
 }
 
