@@ -35,11 +35,6 @@ Usage:
   spititout --json
   spititout zap
 
-Options:
-  --help    Show this help.
-  --json    Output the inventory as JSON.
-  zap       Remove the installed SPITITOUT executable.
-
 EOF
 }
 
